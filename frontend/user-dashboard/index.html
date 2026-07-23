@@ -6,7 +6,62 @@
   <title>Panel Usuario - Forense App</title>
   <link rel="stylesheet" href="/assets/styles.css" />
   <style>
-    body { padding-top: 5rem; }
+    body { align-items: flex-start; padding-top: 5rem; }
+    .card { max-width: 640px; }
+    .progress-bar {
+      width: 100%;
+      height: 10px;
+      background: #334155;
+      border-radius: 999px;
+      overflow: hidden;
+      margin: 1rem 0 0.5rem;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      background: #3b82f6;
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+    .status-text {
+      font-size: 0.85rem;
+      color: #94a3b8;
+    }
+    .action-buttons {
+      display: flex;
+      gap: 0.75rem;
+      margin-top: 1rem;
+    }
+    .action-buttons button {
+      flex: 1;
+    }
+    textarea#result-text {
+      width: 100%;
+      min-height: 260px;
+      margin-top: 1rem;
+      background: #0f172a;
+      color: #e2e8f0;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      padding: 0.75rem;
+      font-family: inherit;
+      font-size: 0.9rem;
+      resize: vertical;
+    }
+    .download-buttons {
+      display: flex;
+      gap: 0.75rem;
+      margin-top: 0.75rem;
+    }
+    .download-buttons button, .reset-btn {
+      flex: 1;
+    }
+    button.secondary {
+      background: #334155;
+    }
+    button.secondary:hover {
+      background: #475569;
+    }
+    .hidden { display: none; }
   </style>
 </head>
 <body>
@@ -17,16 +72,45 @@
 
   <div class="card">
     <h1>Nueva transcripcion</h1>
-    <p class="subtitle">Sube un video o audio de interrogatorio</p>
+    <p class="subtitle">Sube un video o audio de interrogatorio. Nada queda guardado en el servidor.</p>
 
-    <div class="big-buttons">
-      <button class="primary" id="upload-video-btn" disabled>Subir Video (proximamente)</button>
-      <button class="primary" id="upload-audio-btn" disabled>Subir Audio (proximamente)</button>
+    <div class="big-buttons" id="upload-buttons">
+      <button class="primary" id="upload-video-btn">Subir Video</button>
+      <button class="primary" id="upload-audio-btn">Subir Audio</button>
+    </div>
+    <input type="file" id="file-input" class="hidden" accept=".mp4,.mov,.avi,.mkv,.mp3,.wav,.m4a" />
+
+    <div class="message" id="upload-message"></div>
+
+    <div id="choice-section" class="hidden">
+      <p class="subtitle">Video subido: <span id="uploaded-name"></span></p>
+      <div class="action-buttons">
+        <button class="primary" id="extract-audio-btn">Extraer Audio</button>
+        <button class="primary" id="transcribe-btn">Transcribir a Texto</button>
+      </div>
     </div>
 
-    <p class="subtitle" style="margin-top: 1.5rem;">
-      El modulo de subida y transcripcion se habilitara en el siguiente paso.
-    </p>
+    <div id="progress-section" class="hidden">
+      <p class="subtitle" id="progress-label">Procesando...</p>
+      <div class="progress-bar"><div class="progress-bar-fill" id="progress-fill"></div></div>
+      <p class="status-text" id="progress-status"></p>
+    </div>
+
+    <div id="result-section" class="hidden">
+      <h1 style="font-size: 1.1rem; margin-top: 1.5rem;">Transcripcion</h1>
+      <textarea id="result-text" readonly></textarea>
+      <div class="download-buttons">
+        <button class="primary" id="download-txt-btn">Descargar .txt</button>
+        <button class="primary" id="download-pdf-btn">Descargar .pdf</button>
+      </div>
+      <button class="primary secondary reset-btn" id="reset-btn" style="margin-top: 0.75rem;">Nueva transcripcion</button>
+    </div>
+
+    <div id="audio-result-section" class="hidden">
+      <p class="message success" style="display:block; margin-top: 1.5rem;">Audio extraido correctamente.</p>
+      <button class="primary" id="download-audio-btn">Descargar audio (.mp3)</button>
+      <button class="primary secondary reset-btn" id="reset-btn-2" style="margin-top: 0.75rem;">Nueva transcripcion</button>
+    </div>
   </div>
 
   <script src="/assets/auth.js"></script>
@@ -40,6 +124,192 @@
       clearSession();
       window.location.href = '/login/index.html';
     });
+
+    const fileInput = document.getElementById('file-input');
+    const uploadMessage = document.getElementById('upload-message');
+    const uploadButtons = document.getElementById('upload-buttons');
+    const choiceSection = document.getElementById('choice-section');
+    const progressSection = document.getElementById('progress-section');
+    const progressFill = document.getElementById('progress-fill');
+    const progressLabel = document.getElementById('progress-label');
+    const progressStatus = document.getElementById('progress-status');
+    const resultSection = document.getElementById('result-section');
+    const audioResultSection = document.getElementById('audio-result-section');
+    const resultTextArea = document.getElementById('result-text');
+
+    let currentJobId = null;
+    let currentMediaType = null;
+    let pollTimer = null;
+
+    function resetUI() {
+      currentJobId = null;
+      currentMediaType = null;
+      if (pollTimer) clearInterval(pollTimer);
+      uploadMessage.className = 'message';
+      uploadMessage.textContent = '';
+      uploadButtons.classList.remove('hidden');
+      choiceSection.classList.add('hidden');
+      progressSection.classList.add('hidden');
+      resultSection.classList.add('hidden');
+      audioResultSection.classList.add('hidden');
+      fileInput.value = '';
+    }
+
+    document.getElementById('upload-video-btn').addEventListener('click', () => {
+      fileInput.accept = '.mp4,.mov,.avi,.mkv';
+      fileInput.dataset.expected = 'video';
+      fileInput.click();
+    });
+
+    document.getElementById('upload-audio-btn').addEventListener('click', () => {
+      fileInput.accept = '.mp3,.wav,.m4a';
+      fileInput.dataset.expected = 'audio';
+      fileInput.click();
+    });
+
+    fileInput.addEventListener('change', async () => {
+      const file = fileInput.files[0];
+      if (!file) return;
+
+      uploadMessage.className = 'message';
+      uploadMessage.textContent = '';
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      try {
+        uploadButtons.querySelectorAll('button').forEach((b) => (b.disabled = true));
+        const res = await fetch('/api/upload', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${getToken()}` },
+          body: formData,
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Error al subir el archivo');
+
+        currentJobId = data.jobId;
+        currentMediaType = data.mediaType;
+
+        if (data.mediaType === 'video') {
+          document.getElementById('uploaded-name').textContent = data.originalName;
+          uploadButtons.classList.add('hidden');
+          choiceSection.classList.remove('hidden');
+        } else {
+          uploadButtons.classList.add('hidden');
+          startAction('transcribe');
+        }
+      } catch (err) {
+        uploadMessage.textContent = err.message;
+        uploadMessage.className = 'message error';
+      } finally {
+        uploadButtons.querySelectorAll('button').forEach((b) => (b.disabled = false));
+      }
+    });
+
+    document.getElementById('extract-audio-btn').addEventListener('click', () => {
+      choiceSection.classList.add('hidden');
+      startAction('extract_audio');
+    });
+
+    document.getElementById('transcribe-btn').addEventListener('click', () => {
+      choiceSection.classList.add('hidden');
+      startAction('transcribe');
+    });
+
+    async function startAction(action) {
+      progressSection.classList.remove('hidden');
+      progressLabel.textContent = action === 'transcribe' ? 'Transcribiendo...' : 'Extrayendo audio...';
+      progressFill.style.width = '0%';
+      progressStatus.textContent = 'Iniciando...';
+
+      try {
+        await apiFetch(`/job/${currentJobId}/action`, {
+          method: 'POST',
+          body: JSON.stringify({ action }),
+        });
+        pollTimer = setInterval(pollStatus, 1500);
+      } catch (err) {
+        progressStatus.textContent = err.message;
+      }
+    }
+
+    async function pollStatus() {
+      try {
+        const data = await apiFetch(`/job/${currentJobId}/status`);
+        progressFill.style.width = `${data.progress}%`;
+
+        const stageLabels = {
+          uploaded: 'Subido',
+          queued: 'En cola...',
+          preparing: 'Preparando audio...',
+          transcribing: `Transcribiendo... ${data.progress}%`,
+          extracting: 'Extrayendo audio...',
+          done: 'Completado',
+          error: 'Error',
+        };
+        progressStatus.textContent = stageLabels[data.status] || data.status;
+
+        if (data.status === 'done') {
+          clearInterval(pollTimer);
+          progressSection.classList.add('hidden');
+          if (data.action === 'transcribe') {
+            await showResult();
+          } else {
+            audioResultSection.classList.remove('hidden');
+          }
+        } else if (data.status === 'error') {
+          clearInterval(pollTimer);
+          progressStatus.textContent = `Error: ${data.error}`;
+        }
+      } catch (err) {
+        clearInterval(pollTimer);
+        progressStatus.textContent = err.message;
+      }
+    }
+
+    async function showResult() {
+      const data = await apiFetch(`/job/${currentJobId}/result`);
+      resultTextArea.value = data.text;
+      resultSection.classList.remove('hidden');
+    }
+
+    document.getElementById('download-txt-btn').addEventListener('click', () => {
+      downloadJobFile('txt');
+    });
+    document.getElementById('download-pdf-btn').addEventListener('click', () => {
+      downloadJobFile('pdf');
+    });
+    document.getElementById('download-audio-btn').addEventListener('click', () => {
+      downloadJobFile('audio');
+    });
+
+    async function downloadJobFile(format) {
+      const url = `/api/job/${currentJobId}/download${format === 'audio' ? '' : `?format=${format}`}`;
+      const res = await fetch(url, { headers: { Authorization: `Bearer ${getToken()}` } });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || 'No se pudo descargar el archivo');
+        return;
+      }
+      const blob = await res.blob();
+      const disposition = res.headers.get('Content-Disposition') || '';
+      const match = disposition.match(/filename="(.+)"/);
+      const filename = match ? match[1] : `descarga.${format === 'audio' ? 'mp3' : format}`;
+
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+
+      if (format === 'audio') {
+        resetUI();
+      }
+    }
+
+    document.getElementById('reset-btn').addEventListener('click', resetUI);
+    document.getElementById('reset-btn-2').addEventListener('click', resetUI);
   </script>
 </body>
 </html>
