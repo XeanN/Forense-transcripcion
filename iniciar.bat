@@ -126,9 +126,9 @@ if not exist "backend\src\db\forense.db" (
     echo.
 )
 
-echo Iniciando el servidor...
+echo Iniciando el servidor (en segundo plano, minimizado)...
 pushd backend
-start "Forense App - Servidor" cmd /k npm start
+start "Forense App - Servidor" /min cmd /k npm start
 popd
 
 timeout /t 3 /nobreak >nul
@@ -136,8 +136,9 @@ timeout /t 3 /nobreak >nul
 start "" "http://localhost:3000/login/index.html"
 
 echo.
-echo El servidor quedo corriendo en otra ventana ^("Forense App - Servidor"^).
-echo No la cierres mientras uses la aplicacion.
+echo El servidor quedo corriendo minimizado (buscalo en la barra de tareas
+echo como "Forense App - Servidor" si necesitas ver sus logs).
+echo Para detenerlo, hace doble clic en detener.bat.
 echo Esta ventana ya puede cerrarse.
 echo.
 pause

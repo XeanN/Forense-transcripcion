@@ -19,6 +19,9 @@ Pendiente:
 
 ## Inicio rapido (Windows)
 
+**Para iniciar:** doble clic en `iniciar.bat`.
+**Para detener el servidor:** doble clic en `detener.bat`.
+
 Si ya tenes **Node.js, Python y ffmpeg instalados** (ver requisitos abajo), no hace falta seguir los pasos manuales: alcanza con hacer **doble clic en `iniciar.bat`**, en la raiz del proyecto.
 
 El script automaticamente:
@@ -27,11 +30,13 @@ El script automaticamente:
 3. Si es la primera vez, crea el entorno virtual de Python e instala `faster-whisper`.
 4. Si es la primera vez, crea `backend\.env` a partir de `.env.example` y lo abre en el Bloc de notas para que lo completes con tus datos (guardalo y cerralo para continuar).
 5. Si es la primera vez, inicializa la base de datos y el usuario admin.
-6. Levanta el servidor y abre tu navegador en `http://localhost:3000/login/index.html` automaticamente.
+6. Levanta el servidor **minimizado** (en la barra de tareas, sin taparte la pantalla) y abre tu navegador en `http://localhost:3000/login/index.html` automaticamente.
 
 Las siguientes veces, correr `iniciar.bat` de nuevo salta directo al paso 6 (todo lo demas ya quedo instalado).
 
-`iniciar.bat` es especifico de Windows. En Linux/Mac segui los pasos manuales de la seccion siguiente.
+Cuando termines de usar la app, hace doble clic en `detener.bat`: busca el proceso escuchando en el puerto del servidor (`PORT` en `.env`, `3000` por defecto) y lo cierra. Si lo olvidas, el servidor sigue corriendo minimizado hasta que cierres sesion o reinicies la PC.
+
+`iniciar.bat` / `detener.bat` son especificos de Windows. En Linux/Mac segui los pasos manuales de la seccion siguiente.
 
 ## Instalacion desde cero (manual)
 
@@ -223,7 +228,7 @@ El `.gitignore` del proyecto ya excluye lo siguiente; si alguna vez ves alguno d
 
 ## Correr el proyecto (resumen)
 
-En Windows, doble clic en `iniciar.bat` (ver "Inicio rapido" arriba). Manualmente:
+En Windows: doble clic en `iniciar.bat` para iniciar, doble clic en `detener.bat` para detener (ver "Inicio rapido" arriba). Manualmente:
 
 ```
 cd backend
