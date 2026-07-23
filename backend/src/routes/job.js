@@ -80,7 +80,7 @@ router.get('/:jobId/download', (req, res) => {
     if (format === 'txt') {
       res.setHeader('Content-Type', 'text/plain; charset=utf-8');
       res.setHeader('Content-Disposition', `attachment; filename="${baseName}.txt"`);
-      return res.send(job.resultText || '');
+      return res.send(Buffer.from(job.resultText || '', 'utf8'));
     }
 
     res.setHeader('Content-Type', 'application/pdf');

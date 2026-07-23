@@ -72,7 +72,12 @@
         }
 
         saveSession(data.token, data.user);
-        window.location.href = data.user.role === 'admin' ? '/admin-dashboard/index.html' : '/user-dashboard/index.html';
+
+        if (data.user.mustChangePassword) {
+          window.location.href = '/login/first-login.html';
+        } else {
+          window.location.href = data.user.role === 'admin' ? '/admin-dashboard/index.html' : '/user-dashboard/index.html';
+        }
       } catch (err) {
         messageEl.textContent = err.message;
         messageEl.className = 'message error';

@@ -15,6 +15,12 @@ import argparse
 import json
 import sys
 
+# En Windows, stdout/stderr pueden heredar el codepage de la consola (ej.
+# cp1252) en vez de UTF-8 cuando el proceso es invocado por Node via
+# child_process, lo que corrompe tildes y enies. Se fuerza UTF-8 explicito.
+sys.stdout.reconfigure(encoding="utf-8")
+sys.stderr.reconfigure(encoding="utf-8")
+
 
 def log_progress(done, total):
     print(f"PROGRESS {done}/{total}", file=sys.stderr, flush=True)

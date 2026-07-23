@@ -8,6 +8,7 @@ const TRANSCRIBE_SCRIPT = path.join(__dirname, '../../python/transcribe.py');
 const MODEL_SIZE = process.env.WHISPER_MODEL_SIZE || 'small';
 const COMPUTE_TYPE = process.env.WHISPER_COMPUTE_TYPE || 'int8';
 const LANGUAGE = process.env.WHISPER_LANGUAGE || '';
+const HF_HUB_OFFLINE = process.env.HF_HUB_OFFLINE || '1';
 
 function transcribeChunks(chunkPaths, onProgress) {
   return new Promise((resolve, reject) => {
@@ -19,17 +20,28 @@ function transcribeChunks(chunkPaths, onProgress) {
       ...chunkPaths,
     ];
 
-    const proc = spawn(PYTHON_BIN, args, { windowsHide: true });
+    const proc = spawn(PYTHON_BIN, args, {
+      windowsHide: true,
+      env: {
+        ...process.env,
+        HF_HUB_OFFLINE,
+        // Fuerza a Python a leer/escribir stdout, stderr y archivos como
+        // UTF-8 en vez del codepage de la consola de Windows (evita que
+        // tildes y enies salgan como caracteres de reemplazo).
+        PYTHONIOENCODING: 'utf-8',
+        PYTHONUTF8: '1',
+      },
+    });
 
     let stdout = '';
     let stderrTail = '';
 
     proc.stdout.on('data', (chunk) => {
-      stdout += chunk.toString();
+      stdout += chunk.toString('utf8');
     });
 
     proc.stderr.on('data', (chunk) => {
-      const text = chunk.toString();
+      const text = chunk.toString('utf8');
       stderrTail = (stderrTail + text).slice(-2000);
 
       text.split(/\r?\n/).forEach((line) => {

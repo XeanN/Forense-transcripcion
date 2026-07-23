@@ -24,6 +24,10 @@ function requireSession(expectedRole) {
     window.location.href = '/login/index.html';
     return null;
   }
+  if (user.mustChangePassword) {
+    window.location.href = '/login/first-login.html';
+    return null;
+  }
   if (expectedRole && user.role !== expectedRole) {
     window.location.href = user.role === 'admin' ? '/admin-dashboard/index.html' : '/user-dashboard/index.html';
     return null;

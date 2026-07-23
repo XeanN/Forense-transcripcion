@@ -5,7 +5,9 @@ Aplicacion web local para transcribir videos/audios de interrogatorios, con enfo
 ## Estado actual
 
 Implementado:
-- Autenticacion (login, JWT, recuperacion de contrasena por correo)
+- Autenticacion (login, JWT)
+- Primer login obligatorio para usuarios nuevos: definen su propia contrasena y una pregunta de seguridad personalizada
+- Recuperacion de contrasena: por correo (Gmail) solo para el admin; por pregunta de seguridad propia para usuarios normales, con limite de intentos y bloqueo temporal
 - Panel de administracion (crear/listar/revocar usuarios, log de actividad)
 - Panel de usuario: subir video o audio, transcripcion con faster-whisper, extraccion de audio desde video, barra de progreso, descarga en .txt/.pdf/.mp3
 - Borrado automatico de archivos temporales (original + chunks) al finalizar cada job
@@ -77,6 +79,14 @@ El servidor queda disponible en `http://localhost:3000` y sirve tanto la API (`/
 - Login: `http://localhost:3000/login/index.html`
 - Panel admin: `http://localhost:3000/admin-dashboard/index.html` (solo rol admin)
 - Panel usuario: `http://localhost:3000/user-dashboard/index.html`
+
+### Primer login y recuperacion de contrasena (usuarios normales)
+
+1. El admin crea un usuario nuevo desde su panel; recibe una contrasena temporal (`must_change_password = true`).
+2. En su primer login, el usuario es forzado a: (1) definir su contrasena definitiva y (2) escribir su propia pregunta de seguridad y respuesta (ej. "¿Nombre de mi primera mascota?"). La respuesta se guarda hasheada con `bcrypt`, igual que la contrasena.
+3. Si despues olvida su contrasena, en "¿Olvidaste tu contrasena?" ingresa su usuario, el sistema le muestra **su propia pregunta** (nunca la del admin) y, si la responde correctamente, puede definir una contrasena nueva ahi mismo.
+4. Tras 5 respuestas incorrectas, ese flujo se bloquea 15 minutos para ese usuario (para dificultar fuerza bruta). Los intentos, exitos y bloqueos quedan en el log de actividad (nunca la respuesta real).
+5. El admin sigue usando exclusivamente la recuperacion por correo (Gmail + App Password), sin pregunta de seguridad.
 
 ### Flujo de transcripcion
 

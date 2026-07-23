@@ -20,6 +20,10 @@ db.exec(`
     is_active INTEGER NOT NULL DEFAULT 1,
     reset_token TEXT,
     reset_token_expires INTEGER,
+    security_question TEXT,
+    security_answer_hash TEXT,
+    security_attempts INTEGER NOT NULL DEFAULT 0,
+    security_locked_until INTEGER,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
 
@@ -36,5 +40,18 @@ db.exec(`
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
   );
 `);
+
+// Migracion idempotente para bases de datos creadas antes de agregar las
+// columnas de pregunta de seguridad.
+const existingUserColumns = db.prepare('PRAGMA table_info(users)').all().map((c) => c.name);
+function addColumnIfMissing(name, definition) {
+  if (!existingUserColumns.includes(name)) {
+    db.exec(`ALTER TABLE users ADD COLUMN ${definition}`);
+  }
+}
+addColumnIfMissing('security_question', 'security_question TEXT');
+addColumnIfMissing('security_answer_hash', 'security_answer_hash TEXT');
+addColumnIfMissing('security_attempts', 'security_attempts INTEGER NOT NULL DEFAULT 0');
+addColumnIfMissing('security_locked_until', 'security_locked_until INTEGER');
 
 module.exports = db;

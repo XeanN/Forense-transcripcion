@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Configura tu cuenta - Forense App</title>
+  <link rel="stylesheet" href="/assets/styles.css" />
+  <style>
+    .steps { display: flex; gap: 0.4rem; margin-bottom: 1.25rem; }
+    .steps span {
+      flex: 1;
+      height: 4px;
+      border-radius: 999px;
+      background: #334155;
+    }
+    .steps span.active { background: #3b82f6; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Configura tu cuenta</h1>
+    <p class="subtitle">Antes de continuar, define tu contrasena y tu pregunta de seguridad</p>
+
+    <div class="steps">
+      <span id="step-indicator-1" class="active"></span>
+      <span id="step-indicator-2"></span>
+    </div>
+
+    <form id="step1-form">
+      <p class="subtitle">Paso 1 de 2: nueva contrasena</p>
+      <div class="field">
+        <label for="new-password">Nueva contrasena</label>
+        <div class="password-wrapper">
+          <input type="password" id="new-password" minlength="8" required />
+          <button type="button" class="toggle-password" id="toggle-password-1">Mostrar</button>
+        </div>
+      </div>
+      <button type="submit" class="primary" id="step1-btn">Continuar</button>
+      <div class="message" id="step1-message"></div>
+    </form>
+
+    <form id="step2-form" class="hidden">
+      <p class="subtitle">Paso 2 de 2: tu pregunta de seguridad (se usara para recuperar tu contrasena si la olvidas)</p>
+      <div class="field">
+        <label for="security-question">Tu pregunta</label>
+        <input type="text" id="security-question" placeholder="Ej: ¿Nombre de mi primera mascota?" required minlength="3" />
+      </div>
+      <div class="field">
+        <label for="security-answer">Tu respuesta</label>
+        <div class="password-wrapper">
+          <input type="password" id="security-answer" required minlength="2" />
+          <button type="button" class="toggle-password" id="toggle-password-2">Mostrar</button>
+        </div>
+      </div>
+      <button type="submit" class="primary" id="step2-btn">Finalizar</button>
+      <div class="message" id="step2-message"></div>
+    </form>
+  </div>
+
+  <script src="/assets/auth.js"></script>
+  <script>
+    const token = getToken();
+    const user = getUser();
+    if (!token || !user) {
+      window.location.href = '/login/index.html';
+    }
+
+    function setupToggle(buttonId, inputId) {
+      const btn = document.getElementById(buttonId);
+      const input = document.getElementById(inputId);
+      btn.addEventListener('click', () => {
+        const isHidden = input.type === 'password';
+        input.type = isHidden ? 'text' : 'password';
+        btn.textContent = isHidden ? 'Ocultar' : 'Mostrar';
+      });
+    }
+    setupToggle('toggle-password-1', 'new-password');
+    setupToggle('toggle-password-2', 'security-answer');
+
+    const step1Form = document.getElementById('step1-form');
+    const step2Form = document.getElementById('step2-form');
+    const step1Message = document.getElementById('step1-message');
+    const step2Message = document.getElementById('step2-message');
+
+    step1Form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      step1Message.className = 'message';
+      const btn = document.getElementById('step1-btn');
+      btn.disabled = true;
+      btn.textContent = 'Guardando...';
+
+      try {
+        await apiFetch('/auth/first-login/password', {
+          method: 'POST',
+          body: JSON.stringify({ newPassword: document.getElementById('new-password').value }),
+        });
+
+        step1Form.classList.add('hidden');
+        step2Form.classList.remove('hidden');
+        document.getElementById('step-indicator-2').classList.add('active');
+      } catch (err) {
+        step1Message.textContent = err.message;
+        step1Message.className = 'message error';
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Continuar';
+      }
+    });
+
+    step2Form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      step2Message.className = 'message';
+      const btn = document.getElementById('step2-btn');
+      btn.disabled = true;
+      btn.textContent = 'Guardando...';
+
+      try {
+        await apiFetch('/auth/first-login/security-question', {
+          method: 'POST',
+          body: JSON.stringify({
+            question: document.getElementById('security-question').value,
+            answer: document.getElementById('security-answer').value,
+          }),
+        });
+
+        const updatedUser = Object.assign({}, user, { mustChangePassword: false });
+        saveSession(token, updatedUser);
+
+        window.location.href = updatedUser.role === 'admin' ? '/admin-dashboard/index.html' : '/user-dashboard/index.html';
+      } catch (err) {
+        step2Message.textContent = err.message;
+        step2Message.className = 'message error';
+        btn.disabled = false;
+        btn.textContent = 'Finalizar';
+      }
+    });
+  </script>
+</body>
+</html>
