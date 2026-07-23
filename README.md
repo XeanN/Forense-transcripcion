@@ -15,70 +15,202 @@ Implementado:
 Pendiente:
 - Despliegue en la nube (por ahora es solo local)
 
-## Requisitos previos
+---
 
-- Node.js 18+ (probado con v22)
-- Python 3.10+ (probado con 3.11)
-- ffmpeg y ffprobe instalados y disponibles en el PATH (probado con el build de gyan.dev)
-- Cuenta de Gmail con una **App Password** (no la contrasena normal) si se quiere usar la recuperacion de contrasena por correo
-- Conexion a internet la primera vez que se transcribe: `faster-whisper` descarga el modelo elegido (ej. "small", ~500 MB) desde Hugging Face y lo cachea localmente para usos futuros
+## Instalacion desde cero
 
-## Configuracion
+Pasos para clonar el repositorio en una maquina nueva y dejarlo funcionando.
 
-### 1. Backend (Node)
+### Requisitos previos
+
+| Herramienta | Version minima | Notas |
+|---|---|---|
+| [Git](https://git-scm.com/) | cualquiera reciente | para clonar el repo |
+| [Node.js](https://nodejs.org/) | 18+ (probado con v22) | incluye `npm` |
+| [Python](https://www.python.org/) | 3.10+ (probado con 3.11) | usado por el motor de transcripcion |
+| [ffmpeg](https://www.gyan.dev/ffmpeg/builds/) | cualquiera reciente | debe incluir `ffprobe` y estar en el `PATH` (probado con el build "essentials" de gyan.dev en Windows) |
+
+Verifica que todo este instalado y en el `PATH` antes de continuar:
+
+```
+git --version
+node --version
+python --version
+ffmpeg -version
+ffprobe -version
+```
+
+### 1. Clonar el repositorio
+
+```
+git clone https://github.com/XeanN/Forense-transcripcion.git
+cd Forense-transcripcion
+```
+
+### 2. Instalar el backend (Node)
 
 ```
 cd backend
-cp .env.example .env
 npm install
 ```
 
-Editar `.env` y completar al menos:
-- `JWT_SECRET`: una cadena larga y aleatoria
-- `ADMIN_USERNAME`, `ADMIN_PASSWORD`, `ADMIN_EMAIL`: credenciales del usuario admin inicial
-- `GMAIL_USER`, `GMAIL_APP_PASSWORD`: solo si se va a usar "olvide mi contrasena"
+### 3. Crear el entorno virtual de Python e instalar faster-whisper
 
-Luego inicializar la base de datos:
+```
+cd python
+python -m venv .venv
+./.venv/Scripts/pip install -r requirements.txt   # Windows
+# source .venv/bin/activate && pip install -r requirements.txt   # Linux/Mac
+cd ..
+```
+
+Esto queda dentro de `backend/python/.venv` y **no se sube a git** (ver seccion de `.gitignore` mas abajo).
+
+### 4. Crear y completar el `.env`
+
+```
+cp .env.example .env
+```
+
+(Seguis parado en `backend/`. Si usas PowerShell: `Copy-Item .env.example .env`)
+
+Abre `backend/.env` y completa cada variable:
+
+| Variable | Que es | Como completarla |
+|---|---|---|
+| `PORT` | Puerto del servidor | `3000` esta bien para uso local |
+| `NODE_ENV` | Entorno de ejecucion | `development` en local |
+| `JWT_SECRET` | Clave para firmar las sesiones (JWT) | Genera una cadena larga y aleatoria, ej: `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"` |
+| `JWT_EXPIRES_IN` | Duracion de la sesion | `8h` es razonable para una jornada de trabajo |
+| `ADMIN_USERNAME` | Usuario del admin inicial | El que vas a usar para entrar la primera vez |
+| `ADMIN_PASSWORD` | Contrasena del admin inicial | Se usa solo una vez, al correr `npm run seed`. Cambiala despues del primer login |
+| `ADMIN_EMAIL` | Correo del admin | Usado para el link de "olvide mi contrasena" del admin |
+| `DB_PATH` | Ruta del archivo SQLite | Dejar el default `./src/db/forense.db` |
+| `GMAIL_USER` | Cuenta de Gmail que envia los correos de recuperacion | Solo la usa el admin (ver mas abajo como generar el App Password) |
+| `GMAIL_APP_PASSWORD` | Contrasena de aplicacion de Gmail (16 caracteres) | Ver instrucciones abajo. **No es tu contrasena normal de Gmail** |
+| `FRONTEND_URL` | URL base de la app | `http://localhost:3000` en local |
+| `MAX_FILE_SIZE_MB` | Limite de tamano de subida | `2048` (2 GB) por defecto, ajustalo segun tu disco/red |
+| `CHUNK_DURATION_MINUTES` | Duracion de cada fragmento para archivos largos | `15` por defecto |
+| `PYTHON_BIN` | Ruta al Python del venv que instalaste en el paso 3 | Ya viene apuntando a `./python/.venv/Scripts/python.exe`. En Linux/Mac cambialo a `./python/.venv/bin/python` |
+| `WHISPER_MODEL_SIZE` | Tamano del modelo de Whisper | `tiny`, `base`, `small`, `medium` o `large-v3`. `small` es buen balance velocidad/precision en CPU |
+| `WHISPER_COMPUTE_TYPE` | Precision numerica de inferencia | `int8` (mas rapido en CPU, recomendado) |
+| `WHISPER_LANGUAGE` | Idioma forzado | `es` para espanol (mas rapido y preciso que auto-detectar). Vacio = auto-detectar |
+| `HF_HUB_OFFLINE` | Si Whisper puede salir a internet a buscar el modelo | `0` para la primera vez (necesita descargar el modelo). Cambialo a `1` despues de la primera transcripcion exitosa, para que la app nunca vuelva a intentar conectarse a Hugging Face |
+
+#### Como generar un Gmail App Password
+
+Solo hace falta para que el **admin** pueda usar "olvide mi contrasena" (los usuarios normales usan pregunta de seguridad, no correo).
+
+1. Activa la verificacion en dos pasos en la cuenta de Gmail que vas a usar: `https://myaccount.google.com/security`
+2. Ve a `https://myaccount.google.com/apppasswords` (requiere tener la verificacion en dos pasos activada)
+3. Crea una nueva contrasena de aplicacion (nombre libre, ej. "Forense App")
+4. Copia el codigo de 16 caracteres que te muestra Google (sin espacios) y pegalo en `GMAIL_APP_PASSWORD`
+5. En `GMAIL_USER` pon la direccion de Gmail completa
+
+### 5. Inicializar la base de datos
+
+Seguis en `backend/`:
 
 ```
 npm run seed
 ```
 
-Esto crea la base SQLite (`src/db/forense.db`) con las tablas `users` y `activity_log`, y el usuario admin definido en `.env`.
+Esto crea `src/db/forense.db` con las tablas `users` y `activity_log`, y el usuario admin definido en `.env`.
 
-### 2. Motor de transcripcion (Python + faster-whisper)
+### 6. Correr el proyecto
 
-Se recomienda un entorno virtual dedicado dentro de `backend/python`:
+```
+npm start
+```
 
+El servidor queda en `http://localhost:3000` y sirve tanto la API (`/api/...`) como el frontend:
+
+- Login: `http://localhost:3000/login/index.html`
+- Panel admin: `http://localhost:3000/admin-dashboard/index.html` (solo rol admin)
+- Panel usuario: `http://localhost:3000/user-dashboard/index.html`
+
+### Nota sobre el modelo de Whisper
+
+La primera vez que alguien transcribe algo, `faster-whisper` descarga el modelo elegido en `WHISPER_MODEL_SIZE` desde Hugging Face (ej. "small" ≈ 500 MB) y lo guarda en cache local (`~/.cache/huggingface/hub`, o `%USERPROFILE%\.cache\huggingface\hub` en Windows). **Requiere internet solo esa primera vez**; las siguientes transcripciones usan el modelo ya cacheado, incluso sin conexion si `HF_HUB_OFFLINE=1`.
+
+---
+
+## Solucion de problemas
+
+### La descarga del modelo de Whisper se cuelga o es muy lenta
+
+En conexiones lentas o inestables, la descarga inicial del modelo (paso "Nota sobre el modelo de Whisper" arriba) puede fallar o parecer trabada. Prueba en este orden:
+
+**1. Reintentar.** Las descargas de Hugging Face retoman donde quedaron; simplemente volver a transcribir suele bastar.
+
+**2. Aumentar el timeout.** Agrega esto a `backend/.env` antes de reintentar:
+```
+HF_HUB_DOWNLOAD_TIMEOUT=120
+```
+
+**3. Descargar con `huggingface-cli`** (incluido en el venv, con barra de progreso y reintentos):
 ```
 cd backend/python
-python -m venv .venv
-./.venv/Scripts/pip install -r requirements.txt   # Windows
-# source .venv/bin/activate && pip install -r requirements.txt   # Linux/Mac
+./.venv/Scripts/huggingface-cli download Systran/faster-whisper-small
 ```
+Cambia `faster-whisper-small` si usas otro `WHISPER_MODEL_SIZE` (ej. `faster-whisper-medium`).
 
-En `backend/.env`, `PYTHON_BIN` ya apunta por defecto a `./python/.venv/Scripts/python.exe`. Si usas Linux/Mac o una ruta distinta, ajusta esa variable.
+**4. Descarga 100% manual** (si lo anterior falla, por ejemplo por un firewall/proxy que bloquea el cliente de Python pero permite el navegador):
 
-Variables relevantes en `.env`:
-- `WHISPER_MODEL_SIZE`: `tiny`, `base`, `small`, `medium` o `large-v3`. `small` es un buen balance velocidad/precision en CPU; `tiny` es mas rapido pero menos preciso (util solo para pruebas).
-- `WHISPER_COMPUTE_TYPE`: `int8` (mas rapido en CPU, recomendado).
-- `WHISPER_LANGUAGE`: `es` fuerza espanol (mas rapido y preciso si los interrogatorios son en espanol). Vacio = autodetectar idioma.
-- `CHUNK_DURATION_MINUTES`: duracion de cada fragmento para archivos largos (default 15).
+   a. Abre `https://huggingface.co/Systran/faster-whisper-small/tree/main` en el navegador (cambia `small` por tu modelo) y descarga cada archivo listado (`config.json`, `model.bin`, `tokenizer.json`, `vocabulary.txt` u otros que aparezcan) a una carpeta temporal.
 
-El modelo se descarga automaticamente la primera vez que se transcribe algo; no requiere descarga manual.
+   b. Obten el commit hash de la rama `main`:
+   ```
+   git ls-remote https://huggingface.co/Systran/faster-whisper-small main
+   ```
+   (te devuelve algo como `a1b2c3d4...    refs/heads/main`; el hash es la primera columna)
 
-## Correr el proyecto
+   c. Crea a mano esta estructura de carpetas dentro de la cache de Hugging Face:
+   - Windows: `%USERPROFILE%\.cache\huggingface\hub\models--Systran--faster-whisper-small\`
+   - Linux/Mac: `~/.cache/huggingface/hub/models--Systran--faster-whisper-small/`
+
+   ```
+   models--Systran--faster-whisper-small/
+     refs/
+       main              <- archivo de texto plano que contiene SOLO el commit hash, sin salto de linea
+     snapshots/
+       <commit_hash>/
+         config.json
+         model.bin
+         tokenizer.json
+         vocabulary.txt
+   ```
+
+   d. Copia ahi los archivos que descargaste en el paso (a), dentro de la carpeta `snapshots/<commit_hash>/`.
+
+   e. Con `HF_HUB_OFFLINE=1` en `.env`, la app usara directamente ese modelo cacheado sin intentar conectarse a internet.
+
+### El servidor no arranca / puerto en uso
+
+Otro proceso ya esta usando el puerto `3000`. Cierra el otro proceso o cambia `PORT` en `.env`.
+
+### ffmpeg / ffprobe no encontrado
+
+Verifica que `ffmpeg -version` y `ffprobe -version` funcionen desde la misma terminal donde corres `npm start`. Si no, revisa que la carpeta `bin` de tu instalacion de ffmpeg este en la variable de entorno `PATH` del sistema (hace falta abrir una terminal nueva despues de agregarla).
+
+---
+
+## Que nunca debe subirse a git
+
+El `.gitignore` del proyecto ya excluye lo siguiente; si alguna vez ves alguno de estos listado en `git status`, no lo agregues:
+
+- `backend/.env` — contiene secretos reales (JWT secret, contrasena del admin, credenciales de Gmail)
+- `node_modules/` — se reconstruye con `npm install`
+- `backend/python/.venv/` — se reconstruye con los pasos 3 de instalacion
+- `backend/temp/*` — archivos temporales de video/audio en procesamiento; por diseno nunca deben persistir
+- `*.db` — la base de datos SQLite local (usuarios, log de actividad)
+
+## Correr el proyecto (resumen)
 
 ```
 cd backend
 npm start
 ```
-
-El servidor queda disponible en `http://localhost:3000` y sirve tanto la API (`/api/...`) como el frontend estatico.
-
-- Login: `http://localhost:3000/login/index.html`
-- Panel admin: `http://localhost:3000/admin-dashboard/index.html` (solo rol admin)
-- Panel usuario: `http://localhost:3000/user-dashboard/index.html`
 
 ### Primer login y recuperacion de contrasena (usuarios normales)
 
@@ -102,8 +234,8 @@ El servidor queda disponible en `http://localhost:3000` y sirve tanto la API (`/
 
 ## Notas de seguridad
 
-- Las contrasenas se almacenan siempre con `bcrypt`, nunca en texto plano.
+- Las contrasenas (y las respuestas de seguridad) se almacenan siempre con `bcrypt`, nunca en texto plano.
 - El `.env` nunca debe subirse a control de versiones (ya esta en `.gitignore`).
-- El log de actividad guarda solo metadata (usuario, accion, nombre de archivo, tipo, duracion, fecha); nunca contenido de archivos ni transcripciones.
+- El log de actividad guarda solo metadata (usuario, accion, nombre de archivo, tipo, duracion, fecha); nunca contenido de archivos, transcripciones ni respuestas de seguridad.
 - Todas las rutas de admin, subida y procesamiento estan protegidas con JWT, y cada job solo es accesible por el usuario que lo creo.
 - Los logs del servidor solo imprimen eventos (ej. "Job X completado"), nunca el contenido de una transcripcion.
