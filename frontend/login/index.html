@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Iniciar sesion - Forense App</title>
+  <link rel="stylesheet" href="/assets/styles.css" />
+</head>
+<body>
+  <div class="card">
+    <h1>Herramienta Forense</h1>
+    <p class="subtitle">Transcripcion de interrogatorios</p>
+
+    <form id="login-form">
+      <div class="field">
+        <label for="username">Usuario</label>
+        <input type="text" id="username" name="username" autocomplete="username" required />
+      </div>
+
+      <div class="field">
+        <label for="password">Contrasena</label>
+        <div class="password-wrapper">
+          <input type="password" id="password" name="password" autocomplete="current-password" required />
+          <button type="button" class="toggle-password" id="toggle-password" aria-label="Mostrar contrasena">Mostrar</button>
+        </div>
+      </div>
+
+      <button type="submit" class="primary" id="submit-btn">Ingresar</button>
+
+      <div class="message" id="message"></div>
+    </form>
+
+    <div class="links">
+      <a href="/login/forgot-password.html">¿Olvidaste tu contrasena?</a>
+    </div>
+  </div>
+
+  <script src="/assets/auth.js"></script>
+  <script>
+    const form = document.getElementById('login-form');
+    const messageEl = document.getElementById('message');
+    const submitBtn = document.getElementById('submit-btn');
+    const toggleBtn = document.getElementById('toggle-password');
+    const passwordInput = document.getElementById('password');
+
+    toggleBtn.addEventListener('click', () => {
+      const isHidden = passwordInput.type === 'password';
+      passwordInput.type = isHidden ? 'text' : 'password';
+      toggleBtn.textContent = isHidden ? 'Ocultar' : 'Mostrar';
+    });
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      messageEl.className = 'message';
+      messageEl.textContent = '';
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Ingresando...';
+
+      try {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: form.username.value.trim(),
+            password: form.password.value,
+          }),
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+          throw new Error(data.error || 'No se pudo iniciar sesion');
+        }
+
+        saveSession(data.token, data.user);
+        window.location.href = data.user.role === 'admin' ? '/admin-dashboard/index.html' : '/user-dashboard/index.html';
+      } catch (err) {
+        messageEl.textContent = err.message;
+        messageEl.className = 'message error';
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Ingresar';
+      }
+    });
+  </script>
+</body>
+</html>

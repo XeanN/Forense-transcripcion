@@ -1,0 +1,7 @@
+.env
+node_modules/
+/temp/*
+!/temp/.gitkeep
+src/db/*.db
+src/db/*.db-journal
+*.log

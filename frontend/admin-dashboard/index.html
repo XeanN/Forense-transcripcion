@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Panel Admin - Forense App</title>
+  <link rel="stylesheet" href="/assets/styles.css" />
+  <style>
+    body { align-items: flex-start; padding-top: 5rem; }
+    .card { max-width: 720px; }
+    .row { display: flex; gap: 0.75rem; align-items: flex-end; margin-bottom: 1rem; }
+    .row .field { flex: 1; margin-bottom: 0; }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <strong>Panel de administracion</strong>
+    <button id="logout-btn">Cerrar sesion</button>
+  </div>
+
+  <div class="card">
+    <h1>Usuarios</h1>
+    <p class="subtitle">Crear cuentas y revocar acceso</p>
+
+    <form id="create-user-form" class="row">
+      <div class="field">
+        <label for="new-username">Usuario</label>
+        <input type="text" id="new-username" required />
+      </div>
+      <div class="field">
+        <label for="new-email">Correo (opcional)</label>
+        <input type="email" id="new-email" />
+      </div>
+      <button type="submit" class="primary" style="width: auto; padding: 0.65rem 1.2rem;">Crear</button>
+    </form>
+
+    <div class="message" id="create-message"></div>
+
+    <table>
+      <thead>
+        <tr><th>Usuario</th><th>Rol</th><th>Estado</th><th>Creado</th><th></th></tr>
+      </thead>
+      <tbody id="users-table-body"></tbody>
+    </table>
+  </div>
+
+  <div class="card" style="margin-top: 1.5rem;">
+    <h1>Log de actividad</h1>
+    <p class="subtitle">Solo metadata, nunca contenido de archivos</p>
+    <table>
+      <thead>
+        <tr><th>Fecha</th><th>Usuario</th><th>Accion</th><th>Detalle</th></tr>
+      </thead>
+      <tbody id="log-table-body"></tbody>
+    </table>
+  </div>
+
+  <script src="/assets/auth.js"></script>
+  <script>
+    requireSession('admin');
+
+    document.getElementById('logout-btn').addEventListener('click', () => {
+      clearSession();
+      window.location.href = '/login/index.html';
+    });
+
+    async function loadUsers() {
+      const { users } = await apiFetch('/admin/users');
+      const tbody = document.getElementById('users-table-body');
+      tbody.innerHTML = '';
+      users.forEach((u) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${u.username}</td>
+          <td>${u.role}</td>
+          <td>${u.is_active ? 'Activo' : 'Revocado'}</td>
+          <td>${u.created_at}</td>
+          <td>${u.role !== 'admin' && u.is_active ? `<button data-id="${u.id}" class="revoke-btn">Revocar</button>` : ''}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      document.querySelectorAll('.revoke-btn').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          await apiFetch(`/admin/users/${btn.dataset.id}/revoke`, { method: 'PATCH' });
+          loadUsers();
+        });
+      });
+    }
+
+    async function loadLog() {
+      const { log } = await apiFetch('/admin/activity-log');
+      const tbody = document.getElementById('log-table-body');
+      tbody.innerHTML = '';
+      log.forEach((entry) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${entry.created_at}</td>
+          <td>${entry.username}</td>
+          <td>${entry.action}</td>
+          <td>${entry.details || ''}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    document.getElementById('create-user-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const messageEl = document.getElementById('create-message');
+      messageEl.className = 'message';
+      try {
+        const username = document.getElementById('new-username').value.trim();
+        const email = document.getElementById('new-email').value.trim();
+        const data = await apiFetch('/admin/users', {
+          method: 'POST',
+          body: JSON.stringify({ username, email }),
+        });
+        messageEl.textContent = `Usuario creado. Contrasena temporal: ${data.tempPassword}`;
+        messageEl.className = 'message success';
+        document.getElementById('new-username').value = '';
+        document.getElementById('new-email').value = '';
+        loadUsers();
+        loadLog();
+      } catch (err) {
+        messageEl.textContent = err.message;
+        messageEl.className = 'message error';
+      }
+    });
+
+    loadUsers();
+    loadLog();
+  </script>
+</body>
+</html>

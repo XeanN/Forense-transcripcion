@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Panel Usuario - Forense App</title>
+  <link rel="stylesheet" href="/assets/styles.css" />
+  <style>
+    body { padding-top: 5rem; }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <strong id="welcome"></strong>
+    <button id="logout-btn">Cerrar sesion</button>
+  </div>
+
+  <div class="card">
+    <h1>Nueva transcripcion</h1>
+    <p class="subtitle">Sube un video o audio de interrogatorio</p>
+
+    <div class="big-buttons">
+      <button class="primary" id="upload-video-btn" disabled>Subir Video (proximamente)</button>
+      <button class="primary" id="upload-audio-btn" disabled>Subir Audio (proximamente)</button>
+    </div>
+
+    <p class="subtitle" style="margin-top: 1.5rem;">
+      El modulo de subida y transcripcion se habilitara en el siguiente paso.
+    </p>
+  </div>
+
+  <script src="/assets/auth.js"></script>
+  <script>
+    const user = requireSession('user');
+    if (user) {
+      document.getElementById('welcome').textContent = `Hola, ${user.username}`;
+    }
+
+    document.getElementById('logout-btn').addEventListener('click', () => {
+      clearSession();
+      window.location.href = '/login/index.html';
+    });
+  </script>
+</body>
+</html>

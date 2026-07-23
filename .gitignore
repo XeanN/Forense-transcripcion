@@ -1,0 +1,28 @@
+# Node
+node_modules/
+npm-debug.log*
+
+# Entorno
+.env
+.env.local
+
+# Base de datos SQLite
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Temporales de procesamiento
+/backend/temp/*
+!/backend/temp/.gitkeep
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+.vscode/
