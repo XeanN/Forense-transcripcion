@@ -17,9 +17,25 @@ Pendiente:
 
 ---
 
-## Instalacion desde cero
+## Inicio rapido (Windows)
 
-Pasos para clonar el repositorio en una maquina nueva y dejarlo funcionando.
+Si ya tenes **Node.js, Python y ffmpeg instalados** (ver requisitos abajo), no hace falta seguir los pasos manuales: alcanza con hacer **doble clic en `iniciar.bat`**, en la raiz del proyecto.
+
+El script automaticamente:
+1. Verifica que Node, Python y ffmpeg/ffprobe esten instalados (si falta algo, te dice que instalar y de donde descargarlo, y se detiene).
+2. Si es la primera vez, instala las dependencias de Node (`npm install`).
+3. Si es la primera vez, crea el entorno virtual de Python e instala `faster-whisper`.
+4. Si es la primera vez, crea `backend\.env` a partir de `.env.example` y lo abre en el Bloc de notas para que lo completes con tus datos (guardalo y cerralo para continuar).
+5. Si es la primera vez, inicializa la base de datos y el usuario admin.
+6. Levanta el servidor y abre tu navegador en `http://localhost:3000/login/index.html` automaticamente.
+
+Las siguientes veces, correr `iniciar.bat` de nuevo salta directo al paso 6 (todo lo demas ya quedo instalado).
+
+`iniciar.bat` es especifico de Windows. En Linux/Mac segui los pasos manuales de la seccion siguiente.
+
+## Instalacion desde cero (manual)
+
+Pasos para clonar el repositorio en una maquina nueva y dejarlo funcionando sin usar `iniciar.bat` (por ejemplo, en Linux/Mac, o si preferis entender/controlar cada paso).
 
 ### Requisitos previos
 
@@ -206,6 +222,8 @@ El `.gitignore` del proyecto ya excluye lo siguiente; si alguna vez ves alguno d
 - `*.db` — la base de datos SQLite local (usuarios, log de actividad)
 
 ## Correr el proyecto (resumen)
+
+En Windows, doble clic en `iniciar.bat` (ver "Inicio rapido" arriba). Manualmente:
 
 ```
 cd backend
