@@ -47,6 +47,8 @@
   <div class="card" style="margin-top: 1.5rem;">
     <h1>Log de actividad</h1>
     <p class="subtitle">Solo metadata, nunca contenido de archivos</p>
+    <button id="verify-integrity-btn" class="primary" style="width: auto; padding: 0.5rem 1rem;">Verificar integridad del log</button>
+    <div class="message" id="integrity-message"></div>
     <table>
       <thead>
         <tr><th>Fecha</th><th>Usuario</th><th>Accion</th><th>Duracion</th><th>Detalle</th></tr>
@@ -131,6 +133,25 @@
         document.getElementById('new-email').value = '';
         loadUsers();
         loadLog();
+      } catch (err) {
+        messageEl.textContent = err.message;
+        messageEl.className = 'message error';
+      }
+    });
+
+    document.getElementById('verify-integrity-btn').addEventListener('click', async () => {
+      const messageEl = document.getElementById('integrity-message');
+      messageEl.className = 'message';
+      messageEl.textContent = 'Verificando...';
+      try {
+        const result = await apiFetch('/admin/activity-log/verify-integrity');
+        if (result.ok) {
+          messageEl.textContent = `✅ Log integro, sin alteraciones detectadas (${result.checked} entradas revisadas).`;
+          messageEl.className = 'message success';
+        } else {
+          messageEl.textContent = `⚠️ Se detecto una inconsistencia en la entrada #${result.brokenAt}: ${result.reason}`;
+          messageEl.className = 'message error';
+        }
       } catch (err) {
         messageEl.textContent = err.message;
         messageEl.className = 'message error';

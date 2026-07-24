@@ -93,4 +93,8 @@ router.get('/activity-log', (req, res) => {
   res.json({ log: activityLogModel.listRecent() });
 });
 
+router.get('/activity-log/verify-integrity', (req, res) => {
+  res.json(activityLogModel.verifyIntegrity());
+});
+
 module.exports = router;

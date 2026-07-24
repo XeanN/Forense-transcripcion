@@ -263,6 +263,14 @@ Apenas se sube un archivo (antes de procesarlo o borrarlo), el servidor calcula 
 - Al terminar una transcripcion, el hash se muestra en pantalla junto al texto, y tambien queda documentado como pie de pagina en las descargas `.txt` y `.pdf` (con fecha en formato ISO 8601 UTC, sin ambiguedad dia/mes) por si se necesita citar como evidencia.
 - En el panel admin, la columna **"Duracion"** del log de actividad muestra el tiempo de procesamiento en formato legible (ej. "10m 32s"); pasa el mouse sobre esa celda para ver el hash SHA-256 completo.
 
+### Log de actividad a prueba de alteraciones (append-only)
+
+El log de actividad esta encadenado con hashes, al estilo de un ledger: cada entrada guarda `previous_hash` (el hash de la entrada anterior) y `entry_hash` (SHA-256 de todos sus propios campos + `previous_hash`). Si alguien con acceso directo a la base de datos edita o borra el contenido de una entrada vieja, el hash de esa entrada deja de coincidir con lo guardado, y se puede detectar.
+
+- Boton **"Verificar integridad del log"** en el panel admin: recorre toda la tabla y confirma si la cadena es consistente. Muestra "✅ Log integro, sin alteraciones detectadas" o, si encuentra un problema, "⚠️ Se detecto una inconsistencia en la entrada #X" indicando exactamente donde se rompio la cadena.
+- Las entradas que ya existian antes de esta funcionalidad se incorporan automaticamente a la cadena la primera vez que arranca el servidor con este cambio (backfill retroactivo, se ve en la consola: "se calculo la cadena de integridad retroactiva para N entradas existentes").
+- Esto detecta alteraciones del **contenido** de entradas pasadas, pero no reemplaza un backup: no evita que alguien borre la tabla o el archivo de base de datos entero.
+
 ## Notas de seguridad
 
 - Las contrasenas (y las respuestas de seguridad) se almacenan siempre con `bcrypt`, nunca en texto plano.

@@ -41,6 +41,8 @@ db.exec(`
     processing_seconds REAL,
     details TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    previous_hash TEXT,
+    entry_hash TEXT,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
   );
 `);
@@ -61,5 +63,7 @@ addColumnIfMissing('activity_log', 'file_hash', 'file_hash TEXT');
 addColumnIfMissing('activity_log', 'started_at', 'started_at TEXT');
 addColumnIfMissing('activity_log', 'completed_at', 'completed_at TEXT');
 addColumnIfMissing('activity_log', 'processing_seconds', 'processing_seconds REAL');
+addColumnIfMissing('activity_log', 'previous_hash', 'previous_hash TEXT');
+addColumnIfMissing('activity_log', 'entry_hash', 'entry_hash TEXT');
 
 module.exports = db;
