@@ -224,7 +224,7 @@ El `.gitignore` del proyecto ya excluye lo siguiente; si alguna vez ves alguno d
 - `node_modules/` — se reconstruye con `npm install`
 - `backend/python/.venv/` — se reconstruye con los pasos 3 de instalacion
 - `backend/temp/*` — archivos temporales de video/audio en procesamiento; por diseno nunca deben persistir
-- `*.db` — la base de datos SQLite local (usuarios, log de actividad)
+- `*.db` — la base de datos SQLite local y sus backups (usuarios, log de actividad); contienen datos reales, nunca deben subirse
 
 ## Correr el proyecto (resumen)
 
@@ -291,6 +291,27 @@ El log de actividad esta encadenado con hashes, al estilo de un ledger: cada ent
 - **Login:** 5 intentos fallidos bloquean esa cuenta especifica por 15 minutos (el mensaje de error indica cuantos intentos quedan, y cuantos minutos falta si ya esta bloqueada). El contador se reinicia solo al iniciar sesion con exito, o automaticamente en el primer intento despues de que el bloqueo anterior expiro. Cada intento fallido y cada bloqueo quedan en el log de actividad (accion `login_failed`), sin guardar la contrasena.
 - **Recuperacion de contrasena** (`/api/auth/forgot-password` y `/api/auth/recovery-start`): maximo 5 solicitudes cada 15 minutos por conexion (limite compartido entre ambos endpoints, para que no se pueda evadir alternando entre uno y otro). Pensado para evitar spam de correos y sondeo de usuarios, no para bloquear una cuenta puntual.
 - El paso de respuesta a la pregunta de seguridad (`/api/auth/security-answer`) ya tenia su propio limite de 5 intentos / bloqueo de 15 minutos por usuario (ver seccion de primer login mas arriba).
+
+## Backups de la base de datos
+
+La base SQLite (`backend/src/db/forense.db`) guarda usuarios y el log de actividad — es chica pero critica: si se corrompe o se borra por error, se pierden todos los accesos configurados y el historial de auditoria.
+
+- Cada vez que arranca el servidor, se crea automaticamente una copia en `backend/backups/forense_YYYY-MM-DD.db` (un backup por dia calendario; si reiniciás varias veces el mismo dia, se pisa el backup de ese dia en vez de acumular copias identicas).
+- Se guardan solo los **ultimos 7 backups**; los mas viejos se borran solos.
+- El backup usa la API de backup online de SQLite (`db.backup()` de `better-sqlite3`), no una copia de archivo a mano — es seguro incluso con `journal_mode = WAL` y con el servidor escribiendo en la base al mismo tiempo.
+- Los archivos de `backend/backups/` nunca se suben a git (ya cubiertos por la regla `*.db` del `.gitignore`).
+
+### Restaurar desde un backup
+
+Si la base actual se corrompio o perdio datos:
+
+1. Deten el servidor (`detener.bat`, o Ctrl+C si lo corriste con `npm start`).
+2. Por las dudas, no borres el archivo actual: renombralo, por ejemplo `backend/src/db/forense.db` → `forense.db.roto`.
+3. Borra tambien `backend/src/db/forense.db-wal` y `backend/src/db/forense.db-shm` si existen (son archivos temporales del modo WAL; se regeneran solos, no son el backup).
+4. Copia el backup que quieras restaurar desde `backend/backups/` (por ejemplo `forense_2026-07-20.db`) a `backend/src/db/forense.db`.
+5. Inicia el servidor de nuevo (`iniciar.bat`, o `npm start`).
+
+Vas a perder cualquier cambio hecho despues de la fecha de ese backup (usuarios creados/borrados, log de actividad posterior), pero recuperas todo lo que habia hasta ese momento. Probado de punta a punta: se borro un usuario a proposito, se siguieron estos mismos pasos, y el usuario volvio a aparecer intacto.
 
 ## Notas de seguridad
 

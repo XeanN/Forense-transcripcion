@@ -10,10 +10,16 @@ const jobRoutes = require('./src/routes/job');
 const jobManager = require('./src/processing/jobManager');
 const { TEMP_ROOT } = require('./src/middleware/uploadValidation');
 const { notFoundHandler, errorHandler } = require('./src/middleware/errorHandler');
+const { runBackup } = require('./src/db/backup');
 
 // Privacidad: cualquier archivo que haya quedado de una ejecucion anterior
 // (por un cierre inesperado del servidor) se borra al iniciar.
 jobManager.purgeAllOnStartup(TEMP_ROOT);
+
+// Backup diario de la base de datos (usuarios y log de actividad). Un
+// backup fallido no debe impedir que el servidor arranque, por eso no se
+// espera (await) aca.
+runBackup();
 
 const app = express();
 
