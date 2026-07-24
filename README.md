@@ -255,6 +255,12 @@ npm start
 8. Para "Extraer Audio", el .mp3 resultante se borra del disco justo despues de que el usuario lo descarga (o a los 30 minutos si nunca lo descarga).
 9. Al iniciar el servidor, cualquier archivo temporal que haya quedado de una ejecucion anterior (por ejemplo, por un cierre inesperado) se borra automaticamente.
 
+### Concurrencia (varios usuarios subiendo a la vez)
+
+Los jobs se procesan **de a uno**, en orden de llegada, con una cola simple en memoria (un solo worker en `jobManager.js`). Si dos usuarios suben archivos casi al mismo tiempo, el segundo espera en cola mientras se procesa el primero; no se ejecutan transcripciones en paralelo. Cada job tiene su propia carpeta con UUID (`backend/temp/{jobId}/`), asi que los archivos de distintos jobs nunca se mezclan, y la limpieza al terminar solo afecta la carpeta de ese job especifico.
+
+Probado manualmente: video de 1 hora transcrito y descargado sin problemas, y dos videos subidos casi en simultaneo desde dos navegadores distintos — el segundo esperó en cola correctamente, sin cruces de resultados ni archivos huerfanos.
+
 ### Integridad forense (cadena de custodia)
 
 Apenas se sube un archivo (antes de procesarlo o borrarlo), el servidor calcula su hash **SHA-256** con el modulo nativo `crypto` de Node. Esto permite demostrar despues que el archivo procesado fue exactamente ese, sin alteraciones, incluso aunque el original ya no exista en el servidor.
