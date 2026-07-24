@@ -148,6 +148,18 @@
     let currentJobId = null;
     let currentMediaType = null;
     let pollTimer = null;
+    let maxFileSizeMB = null;
+
+    async function loadUploadLimits() {
+      try {
+        const data = await apiFetch('/upload/limits');
+        maxFileSizeMB = data.maxFileSizeMB;
+      } catch (err) {
+        // Si esto falla, el backend igual aplica el limite real al subir;
+        // simplemente no podemos avisar antes de intentarlo.
+      }
+    }
+    loadUploadLimits();
 
     function resetUI() {
       currentJobId = null;
@@ -188,6 +200,15 @@
 
       uploadMessage.className = 'message';
       uploadMessage.textContent = '';
+
+      if (maxFileSizeMB && file.size > maxFileSizeMB * 1024 * 1024) {
+        const fileGB = (file.size / (1024 ** 3)).toFixed(2);
+        const limitGB = (maxFileSizeMB / 1024).toFixed(1);
+        uploadMessage.textContent = `El archivo pesa ${fileGB} GB, que supera el limite permitido de ${limitGB} GB. Elegi un archivo mas chico.`;
+        uploadMessage.className = 'message error';
+        fileInput.value = '';
+        return;
+      }
 
       const formData = new FormData();
       formData.append('file', file);

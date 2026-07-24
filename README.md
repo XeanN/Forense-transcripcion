@@ -110,7 +110,7 @@ Abre `backend/.env` y completa cada variable:
 | `GMAIL_USER` | Cuenta de Gmail que envia los correos de recuperacion | Solo la usa el admin (ver mas abajo como generar el App Password) |
 | `GMAIL_APP_PASSWORD` | Contrasena de aplicacion de Gmail (16 caracteres) | Ver instrucciones abajo. **No es tu contrasena normal de Gmail** |
 | `FRONTEND_URL` | URL base de la app | `http://localhost:3000` en local |
-| `MAX_FILE_SIZE_MB` | Limite de tamano de subida | `2048` (2 GB) por defecto, ajustalo segun tu disco/red |
+| `MAX_FILE_SIZE_MB` | Limite de tamano de subida (mismo limite para video y audio) | `3072` (3 GB) por defecto, ajustalo segun tu disco/red |
 | `CHUNK_DURATION_MINUTES` | Duracion de cada fragmento para archivos largos | `15` por defecto |
 | `PYTHON_BIN` | Ruta al Python del venv que instalaste en el paso 3 | Ya viene apuntando a `./python/.venv/Scripts/python.exe`. En Linux/Mac cambialo a `./python/.venv/bin/python` |
 | `WHISPER_MODEL_SIZE` | Tamano del modelo de Whisper | `tiny`, `base`, `small`, `medium` o `large-v3`. `small` es buen balance velocidad/precision en CPU |
@@ -242,6 +242,15 @@ npm start
 3. Si despues olvida su contrasena, en "¿Olvidaste tu contrasena?" ingresa su usuario, el sistema le muestra **su propia pregunta** (nunca la del admin) y, si la responde correctamente, puede definir una contrasena nueva ahi mismo.
 4. Tras 5 respuestas incorrectas, ese flujo se bloquea 15 minutos para ese usuario (para dificultar fuerza bruta). Los intentos, exitos y bloqueos quedan en el log de actividad (nunca la respuesta real).
 5. El admin sigue usando exclusivamente la recuperacion por correo (Gmail + App Password), sin pregunta de seguridad.
+
+### Validacion de archivos subidos
+
+Antes de aceptar un archivo para procesarlo, se valida en dos niveles:
+
+1. **Tamano**: maximo `MAX_FILE_SIZE_MB` (3 GB por defecto, mismo limite para video y audio). Se valida en el frontend (antes de empezar a subir el archivo, para no gastar tiempo/ancho de banda) y siempre tambien en el backend como respaldo (por si alguien sube directo a la API sin pasar por el frontend). El backend corta la subida apenas se supera el limite, no espera a recibir el archivo completo.
+2. **Tipo real de archivo**: no se confia solo en la extension del nombre. Se usa la libreria [`file-type`](https://www.npmjs.com/package/file-type), que lee los primeros bytes del archivo ya subido (su firma / magic bytes) para confirmar que el contenido realmente es uno de los formatos soportados (mp4, mov, avi, mkv, mp3, wav, m4a) antes de aceptarlo para procesamiento. Por ejemplo, un archivo `.txt` renombrado a `.mp3` se rechaza aunque tenga la extension "correcta".
+
+Si un archivo se rechaza (por tamano o por tipo), el usuario ve un mensaje claro y puede intentar de nuevo con otro archivo — no es un bloqueo como el rate limiting del login, es solo informativo. Cada rechazo queda registrado en el log de actividad del admin (accion `upload_rejected`, con el motivo), y no deja archivos huerfanos en `/temp`.
 
 ### Flujo de transcripcion
 

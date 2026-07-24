@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const multer = require('multer');
+const activityLogModel = require('../db/activityLogModel');
 
 const ALLOWED_EXTENSIONS = new Set(['.mp4', '.mov', '.avi', '.mkv', '.mp3', '.wav', '.m4a']);
 const VIDEO_EXTENSIONS = new Set(['.mp4', '.mov', '.avi', '.mkv']);
@@ -33,13 +34,26 @@ const storage = multer.diskStorage({
 function fileFilter(req, file, cb) {
   const ext = path.extname(file.originalname).toLowerCase();
   if (!ALLOWED_EXTENSIONS.has(ext)) {
-    return cb(new Error(`Tipo de archivo no permitido: ${ext}`));
+    // req.user ya existe aca: requireAuth corre antes que multer en la ruta.
+    if (req.user) {
+      activityLogModel.log({
+        userId: req.user.id,
+        username: req.user.username,
+        action: 'upload_rejected',
+        fileName: file.originalname,
+        details: `Archivo rechazado: extension no permitida (${ext || 'sin extension'})`,
+      });
+    }
+    const err = new Error(`Tipo de archivo no permitido: ${ext || 'sin extension'}`);
+    err.status = 400;
+    return cb(err);
   }
   req.mediaType = VIDEO_EXTENSIONS.has(ext) ? 'video' : 'audio';
   cb(null, true);
 }
 
-const maxSizeBytes = (parseInt(process.env.MAX_FILE_SIZE_MB, 10) || 2048) * 1024 * 1024;
+const MAX_FILE_SIZE_MB = parseInt(process.env.MAX_FILE_SIZE_MB, 10) || 3072;
+const maxSizeBytes = MAX_FILE_SIZE_MB * 1024 * 1024;
 
 const upload = multer({
   storage,
@@ -47,4 +61,4 @@ const upload = multer({
   limits: { fileSize: maxSizeBytes },
 });
 
-module.exports = { upload, TEMP_ROOT, ALLOWED_EXTENSIONS };
+module.exports = { upload, TEMP_ROOT, ALLOWED_EXTENSIONS, MAX_FILE_SIZE_MB };
