@@ -10,8 +10,19 @@ const MAX_SECURITY_ATTEMPTS = 5;
 const SECURITY_LOCK_TTL_MS = 15 * 60 * 1000; // 15 minutos
 const GENERIC_RECOVERY_ERROR = 'Respuesta incorrecta o recuperacion no disponible para este usuario.';
 
+const MAX_LOGIN_ATTEMPTS = 5;
+const LOGIN_LOCK_TTL_MS = 15 * 60 * 1000; // 15 minutos
+
+function isLockActive(lockedUntil) {
+  return !!lockedUntil && lockedUntil > Date.now();
+}
+
 function isSecurityLockActive(user) {
-  return !!user.security_locked_until && user.security_locked_until > Date.now();
+  return isLockActive(user.security_locked_until);
+}
+
+function minutesRemaining(lockedUntil) {
+  return Math.max(1, Math.ceil((lockedUntil - Date.now()) / 60000));
 }
 
 async function sendAdminResetEmail(user) {
@@ -40,9 +51,51 @@ async function login(req, res) {
     return res.status(401).json({ error: 'Credenciales invalidas' });
   }
 
+  if (isLockActive(user.login_locked_until)) {
+    activityLogModel.log({
+      userId: user.id,
+      username: user.username,
+      action: 'login_failed',
+      details: `Intento de login bloqueado temporalmente: usuario ${user.username}`,
+    });
+    return res.status(423).json({
+      error: `Cuenta bloqueada temporalmente por demasiados intentos fallidos. Intenta de nuevo en ${minutesRemaining(user.login_locked_until)} minuto(s).`,
+    });
+  }
+
   const valid = await bcrypt.compare(password, user.password_hash);
   if (!valid) {
-    return res.status(401).json({ error: 'Credenciales invalidas' });
+    // Si el bloqueo anterior ya expiro, este intento arranca un contador nuevo.
+    const lockExpired = user.login_locked_until && user.login_locked_until <= Date.now();
+    const currentAttempts = lockExpired ? 0 : user.login_attempts || 0;
+    const newAttempts = currentAttempts + 1;
+    const lockedUntil = newAttempts >= MAX_LOGIN_ATTEMPTS ? Date.now() + LOGIN_LOCK_TTL_MS : null;
+
+    userModel.setLoginAttempts(user.id, newAttempts, lockedUntil);
+
+    activityLogModel.log({
+      userId: user.id,
+      username: user.username,
+      action: 'login_failed',
+      details: lockedUntil
+        ? `Intento fallido de login: usuario ${user.username} (bloqueado temporalmente)`
+        : `Intento fallido de login: usuario ${user.username}`,
+    });
+
+    if (lockedUntil) {
+      return res.status(423).json({
+        error: `Cuenta bloqueada temporalmente por demasiados intentos fallidos. Intenta de nuevo en ${minutesRemaining(lockedUntil)} minuto(s).`,
+      });
+    }
+
+    const remaining = MAX_LOGIN_ATTEMPTS - newAttempts;
+    return res.status(401).json({
+      error: `Credenciales invalidas. Te quedan ${remaining} intento(s) antes del bloqueo temporal.`,
+    });
+  }
+
+  if (user.login_attempts) {
+    userModel.setLoginAttempts(user.id, 0, null);
   }
 
   const token = jwt.sign({ sub: user.id, role: user.role }, process.env.JWT_SECRET, {

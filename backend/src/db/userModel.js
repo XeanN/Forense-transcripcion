@@ -85,6 +85,14 @@ function resetPasswordViaSecurityAnswer(id, passwordHash) {
   ).run(passwordHash, id);
 }
 
+function setLoginAttempts(id, attempts, lockedUntil) {
+  db.prepare('UPDATE users SET login_attempts = ?, login_locked_until = ? WHERE id = ?').run(
+    attempts,
+    lockedUntil,
+    id
+  );
+}
+
 module.exports = {
   findByUsername,
   findById,
@@ -99,4 +107,5 @@ module.exports = {
   setSecurityQuestion,
   setSecurityAttempts,
   resetPasswordViaSecurityAnswer,
+  setLoginAttempts,
 };

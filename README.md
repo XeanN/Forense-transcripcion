@@ -271,6 +271,12 @@ El log de actividad esta encadenado con hashes, al estilo de un ledger: cada ent
 - Las entradas que ya existian antes de esta funcionalidad se incorporan automaticamente a la cadena la primera vez que arranca el servidor con este cambio (backfill retroactivo, se ve en la consola: "se calculo la cadena de integridad retroactiva para N entradas existentes").
 - Esto detecta alteraciones del **contenido** de entradas pasadas, pero no reemplaza un backup: no evita que alguien borre la tabla o el archivo de base de datos entero.
 
+### Proteccion contra fuerza bruta
+
+- **Login:** 5 intentos fallidos bloquean esa cuenta especifica por 15 minutos (el mensaje de error indica cuantos intentos quedan, y cuantos minutos falta si ya esta bloqueada). El contador se reinicia solo al iniciar sesion con exito, o automaticamente en el primer intento despues de que el bloqueo anterior expiro. Cada intento fallido y cada bloqueo quedan en el log de actividad (accion `login_failed`), sin guardar la contrasena.
+- **Recuperacion de contrasena** (`/api/auth/forgot-password` y `/api/auth/recovery-start`): maximo 5 solicitudes cada 15 minutos por conexion (limite compartido entre ambos endpoints, para que no se pueda evadir alternando entre uno y otro). Pensado para evitar spam de correos y sondeo de usuarios, no para bloquear una cuenta puntual.
+- El paso de respuesta a la pregunta de seguridad (`/api/auth/security-answer`) ya tenia su propio limite de 5 intentos / bloqueo de 15 minutos por usuario (ver seccion de primer login mas arriba).
+
 ## Notas de seguridad
 
 - Las contrasenas (y las respuestas de seguridad) se almacenan siempre con `bcrypt`, nunca en texto plano.

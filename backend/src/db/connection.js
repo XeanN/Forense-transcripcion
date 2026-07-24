@@ -24,6 +24,8 @@ db.exec(`
     security_answer_hash TEXT,
     security_attempts INTEGER NOT NULL DEFAULT 0,
     security_locked_until INTEGER,
+    login_attempts INTEGER NOT NULL DEFAULT 0,
+    login_locked_until INTEGER,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
 
@@ -65,5 +67,7 @@ addColumnIfMissing('activity_log', 'completed_at', 'completed_at TEXT');
 addColumnIfMissing('activity_log', 'processing_seconds', 'processing_seconds REAL');
 addColumnIfMissing('activity_log', 'previous_hash', 'previous_hash TEXT');
 addColumnIfMissing('activity_log', 'entry_hash', 'entry_hash TEXT');
+addColumnIfMissing('users', 'login_attempts', 'login_attempts INTEGER NOT NULL DEFAULT 0');
+addColumnIfMissing('users', 'login_locked_until', 'login_locked_until INTEGER');
 
 module.exports = db;
