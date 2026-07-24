@@ -58,7 +58,7 @@ router.get('/:jobId/result', (req, res) => {
     return res.status(409).json({ error: 'El resultado todavia no esta disponible' });
   }
 
-  res.json({ text: job.resultText });
+  res.json({ text: job.resultText, fileHash: job.fileHash });
 });
 
 router.get('/:jobId/download', (req, res) => {
@@ -77,15 +77,23 @@ router.get('/:jobId/download', (req, res) => {
     }
     const baseName = job.originalName.replace(/\.[^.]+$/, '') || 'transcripcion';
 
+    // Cadena de custodia: el hash queda documentado tambien en el archivo
+    // descargado, no solo en pantalla, por si se cita como evidencia.
+    // Se usa ISO 8601 (UTC) para la fecha, sin ambiguedad dia/mes.
+    const footer = job.fileHash
+      ? `\n\n---\nArchivo original: ${job.originalName}\nSHA-256: ${job.fileHash}\nTranscrito (UTC): ${new Date(job.completedAt).toISOString()}\n`
+      : '';
+    const fullText = (job.resultText || '') + footer;
+
     if (format === 'txt') {
       res.setHeader('Content-Type', 'text/plain; charset=utf-8');
       res.setHeader('Content-Disposition', `attachment; filename="${baseName}.txt"`);
-      return res.send(Buffer.from(job.resultText || '', 'utf8'));
+      return res.send(Buffer.from(fullText, 'utf8'));
     }
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${baseName}.pdf"`);
-    return streamTextAsPdf(job.resultText || '', res);
+    return streamTextAsPdf(fullText, res);
   }
 
   if (job.action === 'extract_audio') {

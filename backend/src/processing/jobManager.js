@@ -12,7 +12,7 @@ const jobs = new Map();
 const queue = [];
 let workerRunning = false;
 
-function createJob({ userId, username, mediaType, originalName, jobDir, originalPath }) {
+function createJob({ userId, username, mediaType, originalName, jobDir, originalPath, fileHash }) {
   const jobId = path.basename(jobDir);
   const job = {
     id: jobId,
@@ -22,6 +22,7 @@ function createJob({ userId, username, mediaType, originalName, jobDir, original
     originalName,
     jobDir,
     originalPath,
+    fileHash: fileHash || null,
     action: null,
     status: 'uploaded',
     progress: 0,
@@ -32,6 +33,7 @@ function createJob({ userId, username, mediaType, originalName, jobDir, original
     downloadMime: null,
     downloadExt: null,
     createdAt: Date.now(),
+    startedAt: null,
     completedAt: null,
     purgeTimer: null,
   };
@@ -105,6 +107,7 @@ async function runWorker() {
 async function processTranscribe(job) {
   job.status = 'preparing';
   job.progress = 5;
+  job.startedAt = Date.now();
 
   job.durationSeconds = await ffmpegService.probeDurationSeconds(job.originalPath);
 
@@ -134,6 +137,10 @@ async function processTranscribe(job) {
     fileName: job.originalName,
     fileType: job.mediaType,
     durationSeconds: job.durationSeconds,
+    fileHash: job.fileHash,
+    startedAt: new Date(job.startedAt).toISOString(),
+    completedAt: new Date(job.completedAt).toISOString(),
+    processingSeconds: (job.completedAt - job.startedAt) / 1000,
     details: `Job ${job.id} completado`,
   });
 
@@ -144,6 +151,7 @@ async function processTranscribe(job) {
 async function processExtractAudio(job) {
   job.status = 'extracting';
   job.progress = 20;
+  job.startedAt = Date.now();
 
   job.durationSeconds = await ffmpegService.probeDurationSeconds(job.originalPath);
 
@@ -167,6 +175,10 @@ async function processExtractAudio(job) {
     fileName: job.originalName,
     fileType: job.mediaType,
     durationSeconds: job.durationSeconds,
+    fileHash: job.fileHash,
+    startedAt: new Date(job.startedAt).toISOString(),
+    completedAt: new Date(job.completedAt).toISOString(),
+    processingSeconds: (job.completedAt - job.startedAt) / 1000,
     details: `Job ${job.id} completado`,
   });
 

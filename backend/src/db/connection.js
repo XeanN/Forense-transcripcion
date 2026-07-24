@@ -35,23 +35,31 @@ db.exec(`
     file_name TEXT,
     file_type TEXT,
     duration_seconds REAL,
+    file_hash TEXT,
+    started_at TEXT,
+    completed_at TEXT,
+    processing_seconds REAL,
     details TEXT,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
   );
 `);
 
-// Migracion idempotente para bases de datos creadas antes de agregar las
-// columnas de pregunta de seguridad.
-const existingUserColumns = db.prepare('PRAGMA table_info(users)').all().map((c) => c.name);
-function addColumnIfMissing(name, definition) {
-  if (!existingUserColumns.includes(name)) {
-    db.exec(`ALTER TABLE users ADD COLUMN ${definition}`);
+// Migracion idempotente para bases de datos creadas antes de agregar columnas
+// nuevas (pregunta de seguridad, hash de integridad, tiempos de procesamiento).
+function addColumnIfMissing(table, name, definition) {
+  const existingColumns = db.prepare(`PRAGMA table_info(${table})`).all().map((c) => c.name);
+  if (!existingColumns.includes(name)) {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${definition}`);
   }
 }
-addColumnIfMissing('security_question', 'security_question TEXT');
-addColumnIfMissing('security_answer_hash', 'security_answer_hash TEXT');
-addColumnIfMissing('security_attempts', 'security_attempts INTEGER NOT NULL DEFAULT 0');
-addColumnIfMissing('security_locked_until', 'security_locked_until INTEGER');
+addColumnIfMissing('users', 'security_question', 'security_question TEXT');
+addColumnIfMissing('users', 'security_answer_hash', 'security_answer_hash TEXT');
+addColumnIfMissing('users', 'security_attempts', 'security_attempts INTEGER NOT NULL DEFAULT 0');
+addColumnIfMissing('users', 'security_locked_until', 'security_locked_until INTEGER');
+addColumnIfMissing('activity_log', 'file_hash', 'file_hash TEXT');
+addColumnIfMissing('activity_log', 'started_at', 'started_at TEXT');
+addColumnIfMissing('activity_log', 'completed_at', 'completed_at TEXT');
+addColumnIfMissing('activity_log', 'processing_seconds', 'processing_seconds REAL');
 
 module.exports = db;

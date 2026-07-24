@@ -49,7 +49,7 @@
     <p class="subtitle">Solo metadata, nunca contenido de archivos</p>
     <table>
       <thead>
-        <tr><th>Fecha</th><th>Usuario</th><th>Accion</th><th>Detalle</th></tr>
+        <tr><th>Fecha</th><th>Usuario</th><th>Accion</th><th>Duracion</th><th>Detalle</th></tr>
       </thead>
       <tbody id="log-table-body"></tbody>
     </table>
@@ -88,16 +88,26 @@
       });
     }
 
+    function formatDuration(seconds) {
+      if (seconds == null) return '';
+      const total = Math.round(seconds);
+      const m = Math.floor(total / 60);
+      const s = total % 60;
+      return m > 0 ? `${m}m ${s}s` : `${s}s`;
+    }
+
     async function loadLog() {
       const { log } = await apiFetch('/admin/activity-log');
       const tbody = document.getElementById('log-table-body');
       tbody.innerHTML = '';
       log.forEach((entry) => {
         const tr = document.createElement('tr');
+        const hashTitle = entry.file_hash ? `title="SHA-256: ${entry.file_hash}"` : '';
         tr.innerHTML = `
           <td>${entry.created_at}</td>
           <td>${entry.username}</td>
           <td>${entry.action}</td>
+          <td ${hashTitle}>${formatDuration(entry.processing_seconds)}</td>
           <td>${entry.details || ''}</td>
         `;
         tbody.appendChild(tr);

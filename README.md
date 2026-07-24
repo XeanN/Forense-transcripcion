@@ -255,10 +255,18 @@ npm start
 8. Para "Extraer Audio", el .mp3 resultante se borra del disco justo despues de que el usuario lo descarga (o a los 30 minutos si nunca lo descarga).
 9. Al iniciar el servidor, cualquier archivo temporal que haya quedado de una ejecucion anterior (por ejemplo, por un cierre inesperado) se borra automaticamente.
 
+### Integridad forense (cadena de custodia)
+
+Apenas se sube un archivo (antes de procesarlo o borrarlo), el servidor calcula su hash **SHA-256** con el modulo nativo `crypto` de Node. Esto permite demostrar despues que el archivo procesado fue exactamente ese, sin alteraciones, incluso aunque el original ya no exista en el servidor.
+
+- El hash queda guardado en `activity_log` (columna `file_hash`), junto con `started_at`, `completed_at` y `processing_seconds` (tiempo real que tardo el procesamiento, distinto de `duration_seconds` que es la duracion del video/audio en si).
+- Al terminar una transcripcion, el hash se muestra en pantalla junto al texto, y tambien queda documentado como pie de pagina en las descargas `.txt` y `.pdf` (con fecha en formato ISO 8601 UTC, sin ambiguedad dia/mes) por si se necesita citar como evidencia.
+- En el panel admin, la columna **"Duracion"** del log de actividad muestra el tiempo de procesamiento en formato legible (ej. "10m 32s"); pasa el mouse sobre esa celda para ver el hash SHA-256 completo.
+
 ## Notas de seguridad
 
 - Las contrasenas (y las respuestas de seguridad) se almacenan siempre con `bcrypt`, nunca en texto plano.
 - El `.env` nunca debe subirse a control de versiones (ya esta en `.gitignore`).
-- El log de actividad guarda solo metadata (usuario, accion, nombre de archivo, tipo, duracion, fecha); nunca contenido de archivos, transcripciones ni respuestas de seguridad.
+- El log de actividad guarda solo metadata (usuario, accion, nombre de archivo, tipo, duracion, hash SHA-256, tiempos de procesamiento, fecha); nunca contenido de archivos, transcripciones ni respuestas de seguridad.
 - Todas las rutas de admin, subida y procesamiento estan protegidas con JWT, y cada job solo es accesible por el usuario que lo creo.
 - Los logs del servidor solo imprimen eventos (ej. "Job X completado"), nunca el contenido de una transcripcion.

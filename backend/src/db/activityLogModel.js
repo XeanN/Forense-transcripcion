@@ -1,9 +1,23 @@
 const db = require('./connection');
 
-function log({ userId, username, action, fileName, fileType, durationSeconds, details }) {
+function log({
+  userId,
+  username,
+  action,
+  fileName,
+  fileType,
+  durationSeconds,
+  fileHash,
+  startedAt,
+  completedAt,
+  processingSeconds,
+  details,
+}) {
   db.prepare(
-    `INSERT INTO activity_log (user_id, username, action, file_name, file_type, duration_seconds, details)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`
+    `INSERT INTO activity_log
+       (user_id, username, action, file_name, file_type, duration_seconds,
+        file_hash, started_at, completed_at, processing_seconds, details)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     userId || null,
     username,
@@ -11,6 +25,10 @@ function log({ userId, username, action, fileName, fileType, durationSeconds, de
     fileName || null,
     fileType || null,
     durationSeconds || null,
+    fileHash || null,
+    startedAt || null,
+    completedAt || null,
+    processingSeconds != null ? processingSeconds : null,
     details || null
   );
 }

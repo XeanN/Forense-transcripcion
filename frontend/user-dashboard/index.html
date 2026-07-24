@@ -99,6 +99,7 @@
     <div id="result-section" class="hidden">
       <h1 style="font-size: 1.1rem; margin-top: 1.5rem;">Transcripcion</h1>
       <textarea id="result-text" readonly></textarea>
+      <p class="status-text" id="result-hash" style="word-break: break-all; margin-top: 0.5rem;"></p>
       <div class="download-buttons">
         <button class="primary" id="download-txt-btn">Descargar .txt</button>
         <button class="primary" id="download-pdf-btn">Descargar .pdf</button>
@@ -270,6 +271,9 @@
     async function showResult() {
       const data = await apiFetch(`/job/${currentJobId}/result`);
       resultTextArea.value = data.text;
+      document.getElementById('result-hash').textContent = data.fileHash
+        ? `SHA-256 del archivo original: ${data.fileHash}`
+        : '';
       resultSection.classList.remove('hidden');
     }
 
