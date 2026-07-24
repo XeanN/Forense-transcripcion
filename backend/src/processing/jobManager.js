@@ -8,6 +8,13 @@ const CHUNK_MINUTES = parseFloat(process.env.CHUNK_DURATION_MINUTES) || 15;
 const RESULT_TTL_MS = 2 * 60 * 60 * 1000; // purga texto en memoria tras 2 horas
 const DOWNLOAD_TTL_MS = 30 * 60 * 1000; // purga audio extraido no descargado tras 30 min
 
+// Mensaje generico para el usuario cuando un job falla. El detalle tecnico
+// real (excepcion, stderr de ffmpeg/python, etc.) nunca se le muestra al
+// usuario: solo queda en la consola del servidor y en activity_log, visible
+// unicamente para el admin.
+const GENERIC_PROCESSING_ERROR =
+  'No se pudo procesar el archivo. Verifica que no este corrupto o en un formato no soportado, e intenta de nuevo.';
+
 const jobs = new Map();
 const queue = [];
 let workerRunning = false;
@@ -95,8 +102,22 @@ async function runWorker() {
       }
     } catch (err) {
       job.status = 'error';
-      job.error = err.message;
+      job.error = GENERIC_PROCESSING_ERROR;
       console.error(`Job ${job.id} fallo: ${err.message}`);
+
+      // El detalle tecnico queda en el log de actividad (solo lo ve el
+      // admin), nunca se lo mostramos al usuario que subio el archivo.
+      activityLogModel.log({
+        userId: job.userId,
+        username: job.username,
+        action: job.action === 'transcribe' ? 'transcribe_failed' : 'extract_audio_failed',
+        fileName: job.originalName,
+        fileType: job.mediaType,
+        fileHash: job.fileHash,
+        details: `Job ${job.id} fallo: ${err.message}`,
+      });
+
+      // Aunque el job haya fallado, no deben quedar archivos huerfanos.
       safeCleanupDir(job.jobDir);
     }
   }

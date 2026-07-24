@@ -112,6 +112,11 @@
       <button class="primary" id="download-audio-btn">Descargar audio (.mp3)</button>
       <button class="primary secondary reset-btn" id="reset-btn-2" style="margin-top: 0.75rem;">Nueva transcripcion</button>
     </div>
+
+    <div id="error-section" class="hidden">
+      <p class="message error" style="display:block; margin-top: 1.5rem;" id="error-message"></p>
+      <button class="primary" id="retry-btn">Reintentar</button>
+    </div>
   </div>
 
   <script src="/assets/auth.js"></script>
@@ -137,6 +142,8 @@
     const resultSection = document.getElementById('result-section');
     const audioResultSection = document.getElementById('audio-result-section');
     const resultTextArea = document.getElementById('result-text');
+    const errorSection = document.getElementById('error-section');
+    const errorMessageEl = document.getElementById('error-message');
 
     let currentJobId = null;
     let currentMediaType = null;
@@ -153,7 +160,14 @@
       progressSection.classList.add('hidden');
       resultSection.classList.add('hidden');
       audioResultSection.classList.add('hidden');
+      errorSection.classList.add('hidden');
       fileInput.value = '';
+    }
+
+    function showError(message) {
+      progressSection.classList.add('hidden');
+      errorMessageEl.textContent = message;
+      errorSection.classList.remove('hidden');
     }
 
     document.getElementById('upload-video-btn').addEventListener('click', () => {
@@ -230,7 +244,7 @@
         });
         pollTimer = setInterval(pollStatus, 1500);
       } catch (err) {
-        progressStatus.textContent = err.message;
+        showError(err.message);
       }
     }
 
@@ -260,11 +274,11 @@
           }
         } else if (data.status === 'error') {
           clearInterval(pollTimer);
-          progressStatus.textContent = `Error: ${data.error}`;
+          showError(data.error || 'No se pudo procesar el archivo. Intenta de nuevo.');
         }
       } catch (err) {
         clearInterval(pollTimer);
-        progressStatus.textContent = err.message;
+        showError('Se perdio la conexion con el servidor mientras se procesaba el archivo. Intenta de nuevo.');
       }
     }
 
@@ -314,6 +328,7 @@
 
     document.getElementById('reset-btn').addEventListener('click', resetUI);
     document.getElementById('reset-btn-2').addEventListener('click', resetUI);
+    document.getElementById('retry-btn').addEventListener('click', resetUI);
   </script>
 </body>
 </html>

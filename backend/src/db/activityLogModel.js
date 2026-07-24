@@ -6,14 +6,18 @@ const db = require('./connection');
 // de la columna sea consistente.
 const GENESIS_HASH = '0'.repeat(64);
 
-// Orden fijo de campos usado para calcular el hash de cada fila. Debe
-// incluir TODOS los campos relevantes de la fila (menos entry_hash, que es
-// el resultado) para que cualquier alteracion, de cualquier campo, rompa
-// la cadena.
+// Orden fijo de campos usado para calcular el hash de cada fila. Incluye
+// todos los campos de contenido (menos entry_hash, que es el resultado).
+// OJO: user_id queda afuera a proposito. La FK a users tiene
+// "ON DELETE SET NULL", asi que si se borra un usuario, SQLite reescribe
+// solo el user_id de sus entradas viejas del log; si ese campo formara
+// parte del hash, borrar un usuario romperia la cadena de todas sus
+// entradas historicas sin que nadie las haya tocado. "username" ya guarda
+// quien hizo la accion de forma inmutable (es un texto libre, no una FK),
+// asi que cumple ese rol sin el problema.
 function computeEntryHash(row) {
   const payload = JSON.stringify([
     row.id,
-    row.user_id,
     row.username,
     row.action,
     row.file_name,

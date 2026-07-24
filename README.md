@@ -261,6 +261,14 @@ Los jobs se procesan **de a uno**, en orden de llegada, con una cola simple en m
 
 Probado manualmente: video de 1 hora transcrito y descargado sin problemas, y dos videos subidos casi en simultaneo desde dos navegadores distintos — el segundo esperó en cola correctamente, sin cruces de resultados ni archivos huerfanos.
 
+### Manejo de errores durante el procesamiento
+
+Si algo falla a mitad de un job (archivo corrupto, formato no soportado, ffmpeg o el proceso de Python se caen, etc.):
+
+- El usuario ve un mensaje claro y accionable (ej. "No se pudo procesar el archivo. Verifica que no este corrupto o en un formato no soportado, e intenta de nuevo.") con un boton **"Reintentar"**, nunca un stack trace tecnico ni la barra de progreso congelada sin explicacion.
+- El detalle tecnico real del error (excepcion, salida de ffmpeg/python) queda solo en la consola del servidor y en el log de actividad del admin (accion `transcribe_failed` / `extract_audio_failed`), nunca expuesto al usuario.
+- Los archivos temporales de ese job se borran igual que si hubiera terminado bien; no quedan huerfanos en `/temp`. Probado subiendo un archivo invalido a proposito: el job termino en error, el mensaje al usuario fue el generico, el detalle tecnico completo aparecio en el log de admin, y la carpeta temporal quedo vacia.
+
 ### Integridad forense (cadena de custodia)
 
 Apenas se sube un archivo (antes de procesarlo o borrarlo), el servidor calcula su hash **SHA-256** con el modulo nativo `crypto` de Node. Esto permite demostrar despues que el archivo procesado fue exactamente ese, sin alteraciones, incluso aunque el original ya no exista en el servidor.
@@ -276,6 +284,7 @@ El log de actividad esta encadenado con hashes, al estilo de un ledger: cada ent
 - Boton **"Verificar integridad del log"** en el panel admin: recorre toda la tabla y confirma si la cadena es consistente. Muestra "✅ Log integro, sin alteraciones detectadas" o, si encuentra un problema, "⚠️ Se detecto una inconsistencia en la entrada #X" indicando exactamente donde se rompio la cadena.
 - Las entradas que ya existian antes de esta funcionalidad se incorporan automaticamente a la cadena la primera vez que arranca el servidor con este cambio (backfill retroactivo, se ve en la consola: "se calculo la cadena de integridad retroactiva para N entradas existentes").
 - Esto detecta alteraciones del **contenido** de entradas pasadas, pero no reemplaza un backup: no evita que alguien borre la tabla o el archivo de base de datos entero.
+- El hash **no incluye** la columna `user_id` (solo `username`, que es texto libre inmutable). Motivo: `user_id` es una foreign key con `ON DELETE SET NULL`, asi que si se elimina un usuario, SQLite reescribe automaticamente el `user_id` de sus entradas viejas del log — si eso formara parte del hash, borrar un usuario romperia la cadena de todo su historial sin que nadie la haya alterado de verdad. Se detecto este problema probando el borrado de un usuario con entradas previas y se corrigio antes de este commit.
 
 ### Proteccion contra fuerza bruta
 
